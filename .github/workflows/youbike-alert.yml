@@ -1,0 +1,37 @@
+name: YouBike Alert
+
+# 台北時間 17:00–18:20 每 5 分鐘檢查一次（cron 用 UTC，台北 = UTC+8）
+# 注意：GitHub 排程只會在 default branch 上觸發，且尖峰時可能延遲數分鐘
+on:
+  schedule:
+    - cron: '*/5 9 * * *'      # 17:00–17:55
+    - cron: '0-20/5 10 * * *'  # 18:00–18:20
+  workflow_dispatch:
+    inputs:
+      force:
+        description: '忽略時間窗並強制推播（測試用）'
+        type: boolean
+        default: true
+
+concurrency:
+  group: youbike-alert
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: tools/youbike-alert
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check stations
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FORCE: ${{ github.event_name == 'workflow_dispatch' && inputs.force }}
+        run: node tools/youbike-alert/check.mjs
